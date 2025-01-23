@@ -17,20 +17,25 @@ fn processInput(window: ?*c.GLFWwindow) callconv(.C) void {
 const vertex_shader_source =
     \\#version 330 core
     \\layout (location = 0) in vec3 aPos;
+    \\layout (location = 1) in vec3 aColor;
+    \\
+    \\out vec3 ourColor;
     \\
     \\void main()
     \\{
     \\    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    \\    ourColor = aColor;
     \\}
 ;
 
 const fragment_shader_source =
     \\#version 330 core
     \\out vec4 FragColor;
+    \\in vec3 ourColor;
     \\
     \\void main()
     \\{
-    \\    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+    \\    FragColor = vec4(ourColor, 1.0);
     \\}
 ;
 
@@ -101,15 +106,11 @@ pub fn main() u8 {
     c.glDeleteShader(vertexShader);
     c.glDeleteShader(fragmentShader);
 
-    const vertices = [12]f32{
-        0.5, 0.5, 0.0, // top right
-        0.5, -0.5, 0.0, // bottom right
-        -0.5, -0.5, 0.0, // bottom left
-        -0.5, 0.5, 0.0, // top left
-    };
-    const indices = [6]u32{
-        0, 1, 3,
-        1, 2, 3,
+    const vertices = [_]f32{
+        // positions    // colors
+        0.5, -0.5, 0.0, 1.0, 0.0, 0.0, // bottom right
+        -0.5, -0.5, 0.0, 0.0, 1.0, 0.0, // bottom let
+        0.0, 0.5, 0.0, 0.0, 0.0, 1.0, // top
     };
 
     var VAO: u32 = undefined;
@@ -120,26 +121,18 @@ pub fn main() u8 {
     c.glGenBuffers(1, &VBO);
     defer c.glDeleteBuffers(1, &VBO);
 
-    var EBO: u32 = undefined;
-    c.glGenBuffers(1, &EBO);
-    defer c.glDeleteBuffers(1, &EBO);
-
     c.glBindVertexArray(VAO);
 
     c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
     c.glBufferData(c.GL_ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices, c.GL_STATIC_DRAW);
 
-    c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, EBO);
-    c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(u32), &indices, c.GL_STATIC_DRAW);
-
-    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), null);
+    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), null);
     c.glEnableVertexAttribArray(0);
 
-    c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
-    c.glBindVertexArray(0);
+    c.glVertexAttribPointer(1, 3, c.GL_FLOAT, c.GL_FALSE, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+    c.glEnableVertexAttribArray(1);
 
-    // Uncomment to draw in wireframe polygons
-    c.glPolygonMode(c.GL_FRONT_AND_BACK, c.GL_LINE);
+    c.glBindVertexArray(VAO);
 
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
         processInput(window);
@@ -148,9 +141,12 @@ pub fn main() u8 {
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
         c.glUseProgram(shaderProgram);
-        c.glBindVertexArray(VAO);
-        // c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
-        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, null);
+        const time: f64 = c.glfwGetTime();
+        const green: f32 = @as(f32, @floatCast(@sin(time) / 2.0 + 0.5));
+        const vertexColorLocation: i32 = c.glGetUniformLocation(shaderProgram, "vertexColor");
+        c.glUniform4f(vertexColorLocation, 0.0, green, 0.0, 1.0);
+
+        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
