@@ -16,6 +16,11 @@ pub fn build(b: *std.Build) void {
         .flags = &[_][]const u8{"-std=c99"},
     });
 
+    exe.addCSourceFile(.{
+        .file = b.path("src/stb_image.c"),
+        .flags = &.{},
+    });
+
     exe.linkLibC();
 
     exe.addIncludePath(b.path("include"));

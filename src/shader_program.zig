@@ -8,7 +8,7 @@ id: c.GLuint,
 
 const Self = @This();
 
-pub fn init(vertex_path: [:0]const u8, fragment_path: [:0]const u8) !Self {
+pub fn compile(vertex_path: [:0]const u8, fragment_path: [:0]const u8) !Self {
     var success: c.GLint = undefined;
     var info_log: [INFO_LOG_SIZE]c.GLchar = undefined;
 

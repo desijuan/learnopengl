@@ -39,16 +39,22 @@ pub fn main() !u8 {
 
     std.log.info("OpenGL {s}", .{c.glGetString(c.GL_VERSION)});
 
-    const program: ShaderProgram = try ShaderProgram.init(
+    const program: ShaderProgram = try ShaderProgram.compile(
         "res/shaders/vertex_shader.glsl",
         "res/shaders/fragment_shader.glsl",
     );
     defer program.deinit();
 
     const vertices = [_]f32{
-        -0.5, -0.5,
-        0.5,  -0.5,
-        0.0,  0.5,
+        0.5, 0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, // top right
+        0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, // bottom right
+        -0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, // bottom left
+        -0.5, 0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // top left
+    };
+
+    const indices = [_]c_uint{
+        0, 1, 3, // first Triangle
+        1, 2, 3, // second Triangle
     };
 
     var VAO: c.GLuint = undefined;
@@ -59,16 +65,82 @@ pub fn main() !u8 {
     c.glGenBuffers(1, &VBO);
     defer c.glDeleteBuffers(1, &VBO);
 
+    var EBO: c.GLuint = undefined;
+    c.glGenBuffers(1, &EBO);
+    defer c.glDeleteBuffers(1, &EBO);
+
     c.glBindVertexArray(VAO);
 
     c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
     c.glBufferData(c.GL_ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices, c.GL_STATIC_DRAW);
 
-    c.glVertexAttribPointer(0, 2, c.GL_FLOAT, c.GL_FALSE, 2 * @sizeOf(f32), @ptrFromInt(0));
-    c.glEnableVertexAttribArray(0);
+    c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, EBO);
+    c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(c_uint), &indices, c.GL_STATIC_DRAW);
 
-    c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
-    c.glBindVertexArray(0);
+    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(0));
+    c.glVertexAttribPointer(1, 3, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+    c.glVertexAttribPointer(2, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(6 * @sizeOf(f32)));
+    c.glEnableVertexAttribArray(0);
+    c.glEnableVertexAttribArray(1);
+    c.glEnableVertexAttribArray(2);
+
+    c.stbi_set_flip_vertically_on_load(1);
+
+    var texture1: c.GLuint = undefined;
+    c.glGenTextures(1, &texture1);
+    defer c.glDeleteTextures(1, &texture1);
+
+    c.glBindTexture(c.GL_TEXTURE_2D, texture1);
+
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_REPEAT);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_REPEAT);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+
+    const texture1_path = "res/img/container.jpg";
+    var width1: c_int = undefined;
+    var height1: c_int = undefined;
+    var n_channels1: c_int = undefined;
+    const texture1_data: [*c]c.stbi_uc = c.stbi_load(texture1_path, &width1, &height1, &n_channels1, 0);
+    if (texture1_data == null) {
+        std.log.err("Failed to load texture from: {s}", .{texture1_path});
+        return 1;
+    }
+
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGB, width1, height1, 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, texture1_data);
+    c.glGenerateMipmap(c.GL_TEXTURE_2D);
+
+    c.stbi_image_free(texture1_data);
+
+    var texture2: c.GLuint = undefined;
+    c.glGenTextures(1, &texture2);
+    defer c.glDeleteTextures(1, &texture2);
+
+    c.glBindTexture(c.GL_TEXTURE_2D, texture2);
+
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_REPEAT);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_REPEAT);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+
+    const texture2_path = "res/img/awesomeface.png";
+    var width2: c_int = undefined;
+    var height2: c_int = undefined;
+    var n_channels2: c_int = undefined;
+    const texture2_data: [*c]c.stbi_uc = c.stbi_load(texture2_path, &width2, &height2, &n_channels2, 0);
+    if (texture2_data == null) {
+        std.log.err("Failed to load texture from: {s}", .{texture2_path});
+        return 1;
+    }
+
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGBA, width2, height2, 0, c.GL_RGBA, c.GL_UNSIGNED_BYTE, texture2_data);
+    c.glGenerateMipmap(c.GL_TEXTURE_2D);
+
+    c.stbi_image_free(texture2_data);
+
+    program.use();
+    program.setInt("texture1", 0);
+    program.setInt("texture2", 1);
 
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
         processInput(window);
@@ -76,10 +148,15 @@ pub fn main() !u8 {
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
+        c.glActiveTexture(c.GL_TEXTURE0);
+        c.glBindTexture(c.GL_TEXTURE_2D, texture1);
+        c.glActiveTexture(c.GL_TEXTURE1);
+        c.glBindTexture(c.GL_TEXTURE_2D, texture2);
+
         program.use();
 
         c.glBindVertexArray(VAO);
-        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
+        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
