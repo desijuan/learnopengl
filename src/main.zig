@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("c.zig");
+const zm = @import("zmath");
 const ShaderProgram = @import("shader_program.zig");
 
 const SCR_WIDTH: u32 = 800;
@@ -39,18 +40,20 @@ pub fn main() !u8 {
 
     std.log.info("OpenGL {s}", .{c.glGetString(c.GL_VERSION)});
 
-    const program: ShaderProgram = try ShaderProgram.compile(
-        "res/shaders/vertex_shader.glsl",
-        "res/shaders/fragment_shader.glsl",
-    );
-    defer program.deinit();
+    const program: ShaderProgram = try ShaderProgram.compile(.{
+        .vertex_path = "res/shaders/vertex_shader.glsl",
+        .fragment_path = "res/shaders/fragment_shader.glsl",
+    });
+    defer program.delete();
 
+    // zig fmt: off
     const vertices = [_]f32{
-        0.5, 0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, // top right
-        0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, // bottom right
+        0.5,   0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, // top right
+        0.5,  -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, // bottom right
         -0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, // bottom left
-        -0.5, 0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // top left
+        -0.5,  0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // top left
     };
+    // zig fmt: on
 
     const indices = [_]c_uint{
         0, 1, 3, // first Triangle
@@ -142,6 +145,8 @@ pub fn main() !u8 {
     program.setInt("texture1", 0);
     program.setInt("texture2", 1);
 
+    const translation: zm.Mat = zm.translation(0.25, -0.25, 0.0);
+
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
         processInput(window);
 
@@ -153,7 +158,13 @@ pub fn main() !u8 {
         c.glActiveTexture(c.GL_TEXTURE1);
         c.glBindTexture(c.GL_TEXTURE_2D, texture2);
 
+        const time: f32 = @floatCast(c.glfwGetTime());
+        const rotation: zm.Mat = zm.rotationZ(time);
+        const transform: zm.Mat = zm.mul(rotation, translation);
+
         program.use();
+        const transformLoc = c.glGetUniformLocation(program.id, "transform");
+        c.glUniformMatrix4fv(transformLoc, 1, c.GL_FALSE, zm.arrNPtr(&transform));
 
         c.glBindVertexArray(VAO);
         c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));

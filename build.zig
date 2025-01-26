@@ -22,10 +22,11 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.linkLibC();
-
     exe.addIncludePath(b.path("include"));
-
     exe.linkSystemLibrary("glfw");
+
+    const zmath = b.dependency("zmath", .{});
+    exe.root_module.addImport("zmath", zmath.module("root"));
 
     b.installArtifact(exe);
 

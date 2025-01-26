@@ -8,7 +8,7 @@ id: c.GLuint,
 
 const Self = @This();
 
-pub fn compile(vertex_path: [:0]const u8, fragment_path: [:0]const u8) !Self {
+pub fn compile(src: struct { vertex_path: [:0]const u8, fragment_path: [:0]const u8 }) !Self {
     var success: c.GLint = undefined;
     var info_log: [INFO_LOG_SIZE]c.GLchar = undefined;
 
@@ -17,7 +17,7 @@ pub fn compile(vertex_path: [:0]const u8, fragment_path: [:0]const u8) !Self {
 
     const allocator = gpa.allocator();
 
-    const vertex_source: [:0]const u8 = try utils.readFileZ(allocator, vertex_path);
+    const vertex_source: [:0]const u8 = try utils.readFileZ(allocator, src.vertex_path);
     defer allocator.free(vertex_source);
 
     const vertexShader: c.GLuint = c.glCreateShader(c.GL_VERTEX_SHADER);
@@ -33,7 +33,7 @@ pub fn compile(vertex_path: [:0]const u8, fragment_path: [:0]const u8) !Self {
         return error.VertexShaderCompilationFailed;
     }
 
-    const fragment_source: [:0]const u8 = try utils.readFileZ(allocator, fragment_path);
+    const fragment_source: [:0]const u8 = try utils.readFileZ(allocator, src.fragment_path);
     defer allocator.free(fragment_source);
 
     const fragmentShader: c.GLuint = c.glCreateShader(c.GL_FRAGMENT_SHADER);
@@ -65,7 +65,7 @@ pub fn compile(vertex_path: [:0]const u8, fragment_path: [:0]const u8) !Self {
     return Self{ .id = programId };
 }
 
-pub fn deinit(self: Self) void {
+pub fn delete(self: Self) void {
     c.glDeleteProgram(self.id);
 }
 
