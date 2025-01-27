@@ -40,6 +40,8 @@ pub fn main() !u8 {
 
     std.log.info("OpenGL {s}", .{c.glGetString(c.GL_VERSION)});
 
+    c.glEnable(c.GL_DEPTH_TEST);
+
     const program: ShaderProgram = try ShaderProgram.compile(.{
         .vertex_path = "res/shaders/vertex_shader.glsl",
         .fragment_path = "res/shaders/fragment_shader.glsl",
@@ -48,17 +50,49 @@ pub fn main() !u8 {
 
     // zig fmt: off
     const vertices = [_]f32{
-        0.5,   0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, // top right
-        0.5,  -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, // bottom right
-        -0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, // bottom left
-        -0.5,  0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // top left
+       -0.5, -0.5, -0.5,  0.0, 0.0,
+        0.5, -0.5, -0.5,  1.0, 0.0,
+        0.5,  0.5, -0.5,  1.0, 1.0,
+        0.5,  0.5, -0.5,  1.0, 1.0,
+       -0.5,  0.5, -0.5,  0.0, 1.0,
+       -0.5, -0.5, -0.5,  0.0, 0.0,
+
+       -0.5, -0.5,  0.5,  0.0, 0.0,
+        0.5, -0.5,  0.5,  1.0, 0.0,
+        0.5,  0.5,  0.5,  1.0, 1.0,
+        0.5,  0.5,  0.5,  1.0, 1.0,
+       -0.5,  0.5,  0.5,  0.0, 1.0,
+       -0.5, -0.5,  0.5,  0.0, 0.0,
+
+       -0.5,  0.5,  0.5,  1.0, 0.0,
+       -0.5,  0.5, -0.5,  1.0, 1.0,
+       -0.5, -0.5, -0.5,  0.0, 1.0,
+       -0.5, -0.5, -0.5,  0.0, 1.0,
+       -0.5, -0.5,  0.5,  0.0, 0.0,
+       -0.5,  0.5,  0.5,  1.0, 0.0,
+
+        0.5,  0.5,  0.5,  1.0, 0.0,
+        0.5,  0.5, -0.5,  1.0, 1.0,
+        0.5, -0.5, -0.5,  0.0, 1.0,
+        0.5, -0.5, -0.5,  0.0, 1.0,
+        0.5, -0.5,  0.5,  0.0, 0.0,
+        0.5,  0.5,  0.5,  1.0, 0.0,
+
+       -0.5, -0.5, -0.5,  0.0, 1.0,
+        0.5, -0.5, -0.5,  1.0, 1.0,
+        0.5, -0.5,  0.5,  1.0, 0.0,
+        0.5, -0.5,  0.5,  1.0, 0.0,
+       -0.5, -0.5,  0.5,  0.0, 0.0,
+       -0.5, -0.5, -0.5,  0.0, 1.0,
+
+       -0.5,  0.5, -0.5,  0.0, 1.0,
+        0.5,  0.5, -0.5,  1.0, 1.0,
+        0.5,  0.5,  0.5,  1.0, 0.0,
+        0.5,  0.5,  0.5,  1.0, 0.0,
+       -0.5,  0.5,  0.5,  0.0, 0.0,
+       -0.5,  0.5, -0.5,  0.0, 1.0,
     };
     // zig fmt: on
-
-    const indices = [_]c_uint{
-        0, 1, 3, // first Triangle
-        1, 2, 3, // second Triangle
-    };
 
     var VAO: c.GLuint = undefined;
     c.glGenVertexArrays(1, &VAO);
@@ -68,24 +102,15 @@ pub fn main() !u8 {
     c.glGenBuffers(1, &VBO);
     defer c.glDeleteBuffers(1, &VBO);
 
-    var EBO: c.GLuint = undefined;
-    c.glGenBuffers(1, &EBO);
-    defer c.glDeleteBuffers(1, &EBO);
-
     c.glBindVertexArray(VAO);
 
     c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
     c.glBufferData(c.GL_ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices, c.GL_STATIC_DRAW);
 
-    c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, EBO);
-    c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(c_uint), &indices, c.GL_STATIC_DRAW);
-
-    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(0));
-    c.glVertexAttribPointer(1, 3, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
-    c.glVertexAttribPointer(2, 2, c.GL_FLOAT, c.GL_FALSE, 8 * @sizeOf(f32), @ptrFromInt(6 * @sizeOf(f32)));
+    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
+    c.glVertexAttribPointer(1, 2, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
     c.glEnableVertexAttribArray(0);
     c.glEnableVertexAttribArray(1);
-    c.glEnableVertexAttribArray(2);
 
     c.stbi_set_flip_vertically_on_load(1);
 
@@ -145,29 +170,29 @@ pub fn main() !u8 {
     program.setInt("texture1", 0);
     program.setInt("texture2", 1);
 
-    const translation: zm.Mat = zm.translation(0.25, -0.25, 0.0);
+    const view: zm.Mat = zm.translation(0.0, 0.0, -3.0);
+    const projection: zm.Mat = zm.perspectiveFovRh(0.25 * std.math.pi, 800.0 / 600.0, 0.1, 100.0);
 
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
         processInput(window);
 
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT);
+        c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
 
         c.glActiveTexture(c.GL_TEXTURE0);
         c.glBindTexture(c.GL_TEXTURE_2D, texture1);
         c.glActiveTexture(c.GL_TEXTURE1);
         c.glBindTexture(c.GL_TEXTURE_2D, texture2);
 
-        const time: f32 = @floatCast(c.glfwGetTime());
-        const rotation: zm.Mat = zm.rotationZ(time);
-        const transform: zm.Mat = zm.mul(rotation, translation);
+        const model: zm.Mat = zm.matFromAxisAngle(zm.f32x4(0.5, 1.0, 0.0, 1.0), @floatCast(c.glfwGetTime()));
 
         program.use();
-        const transformLoc = c.glGetUniformLocation(program.id, "transform");
-        c.glUniformMatrix4fv(transformLoc, 1, c.GL_FALSE, zm.arrNPtr(&transform));
+        program.setMat("model", zm.arrNPtr(&model));
+        program.setMat("view", zm.arrNPtr(&view));
+        program.setMat("projection", zm.arrNPtr(&projection));
 
         c.glBindVertexArray(VAO);
-        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
+        c.glDrawArrays(c.GL_TRIANGLES, 0, 36);
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();

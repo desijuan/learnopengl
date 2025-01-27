@@ -65,22 +65,26 @@ pub fn compile(src: struct { vertex_path: [:0]const u8, fragment_path: [:0]const
     return Self{ .id = programId };
 }
 
-pub fn delete(self: Self) void {
+pub inline fn delete(self: Self) void {
     c.glDeleteProgram(self.id);
 }
 
-pub fn use(self: Self) void {
+pub inline fn use(self: Self) void {
     c.glUseProgram(self.id);
 }
 
-pub fn setBool(self: Self, name: [:0]const u8, value: bool) void {
+pub inline fn setBool(self: Self, name: [:0]const u8, value: bool) void {
     c.glUniform1i(c.glGetUniformLocation(self.id, name), if (value) 1 else 0);
 }
 
-pub fn setInt(self: Self, name: [:0]const u8, value: i32) void {
+pub inline fn setInt(self: Self, name: [:0]const u8, value: i32) void {
     c.glUniform1i(c.glGetUniformLocation(self.id, name), value);
 }
 
-pub fn setFloat(self: Self, name: [:0]const u8, value: f32) void {
+pub inline fn setFloat(self: Self, name: [:0]const u8, value: f32) void {
     c.glUniform1f(c.glGetUniformLocation(self.id, name), value);
+}
+
+pub inline fn setMat(self: Self, name: [:0]const u8, mat: [*c]const f32) void {
+    c.glUniformMatrix4fv(c.glGetUniformLocation(self.id, name), 1, c.GL_FALSE, mat);
 }
