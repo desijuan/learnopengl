@@ -10,10 +10,17 @@ fn framebufferSizeCallback(_: ?*c.GLFWwindow, width: c_int, height: c_int) callc
     c.glViewport(0, 0, width, height);
 }
 
-fn processInput(window: ?*c.GLFWwindow) callconv(.C) void {
+fn processInput(window: ?*c.GLFWwindow) void {
     if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS)
-        c.glfwSetWindowShouldClose(window, c.GL_TRUE);
+        c.glfwSetWindowShouldClose(window, c.GL_TRUE)
+    else if (c.glfwGetKey(window, c.GLFW_KEY_UP) == c.GLFW_PRESS)
+        displ += delta
+    else if (c.glfwGetKey(window, c.GLFW_KEY_DOWN) == c.GLFW_PRESS)
+        displ -= delta;
 }
+
+const delta: f32 = 0.1;
+var displ: f32 = 0.0;
 
 pub fn main() !u8 {
     if (c.glfwInit() != c.GL_TRUE) {
@@ -49,6 +56,7 @@ pub fn main() !u8 {
     defer program.delete();
 
     // zig fmt: off
+
     const vertices = [_]f32{
        -0.5, -0.5, -0.5,  0.0, 0.0,
         0.5, -0.5, -0.5,  1.0, 0.0,
@@ -92,6 +100,20 @@ pub fn main() !u8 {
        -0.5,  0.5,  0.5,  0.0, 0.0,
        -0.5,  0.5, -0.5,  0.0, 1.0,
     };
+
+    const cube_positions = [_]@Vector(3, f32){
+        .{  0.0,  0.0,  0.0  },
+        .{  2.0,  5.0, -15.0 },
+        .{ -1.5, -2.2, -2.5  },
+        .{ -3.8, -2.0, -12.3 },
+        .{  2.4, -0.4, -3.5  },
+        .{ -1.7,  3.0, -7.5  },
+        .{  1.3, -2.0, -2.5  },
+        .{  1.5,  2.0, -2.5  },
+        .{  1.5,  0.2, -1.5  },
+        .{ -1.3,  1.0, -1.5  },
+    };
+
     // zig fmt: on
 
     var VAO: c.GLuint = undefined;
@@ -170,7 +192,6 @@ pub fn main() !u8 {
     program.setInt("texture1", 0);
     program.setInt("texture2", 1);
 
-    const view: zm.Mat = zm.translation(0.0, 0.0, -3.0);
     const projection: zm.Mat = zm.perspectiveFovRh(0.25 * std.math.pi, 800.0 / 600.0, 0.1, 100.0);
 
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
@@ -184,15 +205,23 @@ pub fn main() !u8 {
         c.glActiveTexture(c.GL_TEXTURE1);
         c.glBindTexture(c.GL_TEXTURE_2D, texture2);
 
-        const model: zm.Mat = zm.matFromAxisAngle(zm.f32x4(0.5, 1.0, 0.0, 1.0), @floatCast(c.glfwGetTime()));
+        const view: zm.Mat = zm.translation(0.0, 0.0, -3.0 + displ);
 
         program.use();
-        program.setMat("model", zm.arrNPtr(&model));
         program.setMat("view", zm.arrNPtr(&view));
         program.setMat("projection", zm.arrNPtr(&projection));
 
         c.glBindVertexArray(VAO);
-        c.glDrawArrays(c.GL_TRIANGLES, 0, 36);
+
+        for (cube_positions, 0..) |v, i| {
+            const translation: zm.Mat = zm.translation(v[0], v[1], v[2]);
+            const angle: f32 = 20.0 * @as(f32, @floatFromInt(i));
+            const rotation: zm.Mat = zm.matFromAxisAngle(zm.f32x4(1.0, 0.3, 0.5, 1.0), std.math.degreesToRadians(angle));
+            const model: zm.Mat = zm.mul(rotation, translation);
+            program.setMat("model", zm.arrNPtr(&model));
+
+            c.glDrawArrays(c.GL_TRIANGLES, 0, 36);
+        }
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
