@@ -12,15 +12,8 @@ fn framebufferSizeCallback(_: ?*c.GLFWwindow, width: c_int, height: c_int) callc
 
 fn processInput(window: ?*c.GLFWwindow) void {
     if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS)
-        c.glfwSetWindowShouldClose(window, c.GL_TRUE)
-    else if (c.glfwGetKey(window, c.GLFW_KEY_UP) == c.GLFW_PRESS)
-        displ += delta
-    else if (c.glfwGetKey(window, c.GLFW_KEY_DOWN) == c.GLFW_PRESS)
-        displ -= delta;
+        c.glfwSetWindowShouldClose(window, c.GL_TRUE);
 }
-
-const delta: f32 = 0.1;
-var displ: f32 = 0.0;
 
 pub fn main() !u8 {
     if (c.glfwInit() != c.GL_TRUE) {
@@ -205,7 +198,15 @@ pub fn main() !u8 {
         c.glActiveTexture(c.GL_TEXTURE1);
         c.glBindTexture(c.GL_TEXTURE_2D, texture2);
 
-        const view: zm.Mat = zm.translation(0.0, 0.0, -3.0 + displ);
+        const r: f32 = 10.0;
+        const t: f32 = @floatCast(c.glfwGetTime());
+        const cam_x: f32 = r * std.math.sin(t);
+        const cam_z: f32 = r * std.math.cos(t);
+        const view: zm.Mat = zm.lookAtRh(
+            .{ cam_x, 0.0, cam_z, 1.0 },
+            .{ 0.0, 0.0, 0.0, 1.0 },
+            .{ 0.0, 1.0, 0.0, 1.0 },
+        );
 
         program.use();
         program.setMat("view", zm.arrNPtr(&view));
