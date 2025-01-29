@@ -3,16 +3,97 @@ const c = @import("c.zig");
 const zm = @import("zmath");
 const ShaderProgram = @import("shader_program.zig");
 
-const SCR_WIDTH: u32 = 800;
-const SCR_HEIGHT: u32 = 600;
+const math = std.math;
+
+const SCR_WIDTH: u16 = 800;
+const SCR_HEIGHT: u16 = 600;
+
+var scr_width: c_int = 800;
+var scr_height: c_int = 600;
 
 fn framebufferSizeCallback(_: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.C) void {
+    scr_width = width;
+    scr_height = height;
     c.glViewport(0, 0, width, height);
 }
 
+var yaw: f64 = -90.0;
+var pitch: f64 = 0.0;
+
+const sensitivity: f64 = 0.1;
+
+var last_x: f64 = SCR_WIDTH / 2;
+var last_y: f64 = SCR_HEIGHT / 2;
+
+var cp_first_call: bool = true;
+
+fn cursorPosCallback(_: ?*c.GLFWwindow, xpos: f64, ypos: f64) callconv(.C) void {
+    if (cp_first_call) {
+        cp_first_call = false;
+        last_x = xpos;
+        last_y = ypos;
+    }
+
+    var xoffset: f64 = xpos - last_x;
+    var yoffset: f64 = last_y - ypos;
+    last_x = xpos;
+    last_y = ypos;
+
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    if (pitch < -89.0)
+        pitch = -89.0
+    else if (pitch > 89.0)
+        pitch = 89.0;
+
+    const direction = zm.Vec{
+        @floatCast(math.cos(math.degreesToRadians(yaw)) * math.cos(math.degreesToRadians(pitch))),
+        @floatCast(math.sin(math.degreesToRadians(pitch))),
+        @floatCast(math.sin(math.degreesToRadians(yaw)) * math.cos(math.degreesToRadians(pitch))),
+        0.0,
+    };
+
+    camera_front = zm.normalize3(direction);
+}
+
+var fov: f32 = 45.0;
+
+fn scrollCallback(_: ?*c.GLFWwindow, _: f64, yoffset: f64) callconv(.C) void {
+    fov -= @floatCast(yoffset);
+    if (fov < 1.0)
+        fov = 1.0
+    else if (fov > 80.0)
+        fov = 80.0;
+}
+
+var delta_time: f32 = 0.0;
+var last_frame: f32 = 0.0;
+
+var camera_pos = zm.Vec{ 0.0, 0.0, 3.0, 1.0 };
+var camera_front = zm.Vec{ 0.0, 0.0, -1.0, 0.0 };
+var camera_up = zm.Vec{ 0.0, 1.0, 0.0, 0.0 };
+
+inline fn splat4f(k: f32) @Vector(4, f32) {
+    return @splat(k);
+}
+
 fn processInput(window: ?*c.GLFWwindow) void {
+    const speed: f32 = 2.5 * delta_time;
+
     if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS)
-        c.glfwSetWindowShouldClose(window, c.GL_TRUE);
+        c.glfwSetWindowShouldClose(window, c.GL_TRUE)
+    else if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS)
+        camera_pos += splat4f(speed) * camera_front
+    else if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS)
+        camera_pos -= splat4f(speed) * camera_front
+    else if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS)
+        camera_pos -= splat4f(speed) * zm.normalize3(zm.cross3(camera_front, camera_up))
+    else if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS)
+        camera_pos += splat4f(speed) * zm.normalize3(zm.cross3(camera_front, camera_up));
 }
 
 pub fn main() !u8 {
@@ -31,7 +112,12 @@ pub fn main() !u8 {
         return 1;
     };
     c.glfwMakeContextCurrent(window);
+
+    c.glfwSetInputMode(window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
+
     _ = c.glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    _ = c.glfwSetCursorPosCallback(window, cursorPosCallback);
+    _ = c.glfwSetScrollCallback(window, scrollCallback);
 
     if (c.gladLoadGLLoader(@ptrCast(&c.glfwGetProcAddress)) != c.GL_TRUE) {
         std.log.err("Failed to initialize GLAD", .{});
@@ -185,9 +271,11 @@ pub fn main() !u8 {
     program.setInt("texture1", 0);
     program.setInt("texture2", 1);
 
-    const projection: zm.Mat = zm.perspectiveFovRh(0.25 * std.math.pi, 800.0 / 600.0, 0.1, 100.0);
-
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
+        const current_frame: f32 = @floatCast(c.glfwGetTime());
+        delta_time = current_frame - last_frame;
+        last_frame = current_frame;
+
         processInput(window);
 
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
@@ -198,26 +286,29 @@ pub fn main() !u8 {
         c.glActiveTexture(c.GL_TEXTURE1);
         c.glBindTexture(c.GL_TEXTURE_2D, texture2);
 
-        const r: f32 = 10.0;
-        const t: f32 = @floatCast(c.glfwGetTime());
-        const cam_x: f32 = r * std.math.sin(t);
-        const cam_z: f32 = r * std.math.cos(t);
+        const projection: zm.Mat = zm.perspectiveFovRh(
+            math.degreesToRadians(fov),
+            @as(f32, @floatFromInt(scr_width)) / @as(f32, @floatFromInt(scr_height)),
+            0.1,
+            100.0,
+        );
+
         const view: zm.Mat = zm.lookAtRh(
-            .{ cam_x, 0.0, cam_z, 1.0 },
-            .{ 0.0, 0.0, 0.0, 1.0 },
-            .{ 0.0, 1.0, 0.0, 1.0 },
+            camera_pos,
+            camera_pos + camera_front,
+            camera_up,
         );
 
         program.use();
-        program.setMat("view", zm.arrNPtr(&view));
         program.setMat("projection", zm.arrNPtr(&projection));
+        program.setMat("view", zm.arrNPtr(&view));
 
         c.glBindVertexArray(VAO);
 
         for (cube_positions, 0..) |v, i| {
             const translation: zm.Mat = zm.translation(v[0], v[1], v[2]);
             const angle: f32 = 20.0 * @as(f32, @floatFromInt(i));
-            const rotation: zm.Mat = zm.matFromAxisAngle(zm.f32x4(1.0, 0.3, 0.5, 1.0), std.math.degreesToRadians(angle));
+            const rotation: zm.Mat = zm.matFromAxisAngle(zm.f32x4(1.0, 0.3, 0.5, 1.0), math.degreesToRadians(angle));
             const model: zm.Mat = zm.mul(rotation, translation);
             program.setMat("model", zm.arrNPtr(&model));
 
