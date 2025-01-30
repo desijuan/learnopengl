@@ -1,100 +1,20 @@
 const std = @import("std");
 const c = @import("c.zig");
 const zm = @import("zmath");
-const ShaderProgram = @import("shader_program.zig");
 
 const math = std.math;
+
+const ShaderProgram = @import("shader_program.zig");
+const Camera = @import("camera.zig");
 
 const SCR_WIDTH: u16 = 800;
 const SCR_HEIGHT: u16 = 600;
 
-var scr_width: c_int = 800;
-var scr_height: c_int = 600;
-
-fn framebufferSizeCallback(_: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.C) void {
-    scr_width = width;
-    scr_height = height;
-    c.glViewport(0, 0, width, height);
-}
-
-var yaw: f64 = -90.0;
-var pitch: f64 = 0.0;
-
-const sensitivity: f64 = 0.1;
-
-var last_x: f64 = SCR_WIDTH / 2;
-var last_y: f64 = SCR_HEIGHT / 2;
-
-var cp_first_call: bool = true;
-
-fn cursorPosCallback(_: ?*c.GLFWwindow, xpos: f64, ypos: f64) callconv(.C) void {
-    if (cp_first_call) {
-        cp_first_call = false;
-        last_x = xpos;
-        last_y = ypos;
-    }
-
-    var xoffset: f64 = xpos - last_x;
-    var yoffset: f64 = last_y - ypos;
-    last_x = xpos;
-    last_y = ypos;
-
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
-
-    yaw += xoffset;
-    pitch += yoffset;
-
-    if (pitch < -89.0)
-        pitch = -89.0
-    else if (pitch > 89.0)
-        pitch = 89.0;
-
-    const direction = zm.Vec{
-        @floatCast(math.cos(math.degreesToRadians(yaw)) * math.cos(math.degreesToRadians(pitch))),
-        @floatCast(math.sin(math.degreesToRadians(pitch))),
-        @floatCast(math.sin(math.degreesToRadians(yaw)) * math.cos(math.degreesToRadians(pitch))),
-        0.0,
-    };
-
-    camera_front = zm.normalize3(direction);
-}
-
-var fov: f32 = 45.0;
-
-fn scrollCallback(_: ?*c.GLFWwindow, _: f64, yoffset: f64) callconv(.C) void {
-    fov -= @floatCast(yoffset);
-    if (fov < 1.0)
-        fov = 1.0
-    else if (fov > 80.0)
-        fov = 80.0;
-}
-
-var delta_time: f32 = 0.0;
-var last_frame: f32 = 0.0;
-
-var camera_pos = zm.Vec{ 0.0, 0.0, 3.0, 1.0 };
-var camera_front = zm.Vec{ 0.0, 0.0, -1.0, 0.0 };
-var camera_up = zm.Vec{ 0.0, 1.0, 0.0, 0.0 };
-
-inline fn splat4f(k: f32) @Vector(4, f32) {
-    return @splat(k);
-}
-
-fn processInput(window: ?*c.GLFWwindow) void {
-    const speed: f32 = 2.5 * delta_time;
-
-    if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS)
-        c.glfwSetWindowShouldClose(window, c.GL_TRUE)
-    else if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS)
-        camera_pos += splat4f(speed) * camera_front
-    else if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS)
-        camera_pos -= splat4f(speed) * camera_front
-    else if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS)
-        camera_pos -= splat4f(speed) * zm.normalize3(zm.cross3(camera_front, camera_up))
-    else if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS)
-        camera_pos += splat4f(speed) * zm.normalize3(zm.cross3(camera_front, camera_up));
-}
+var camera = Camera.init(
+    .{ 0.0, 0.0, 3.0, 1.0 },
+    .{ 0.0, 0.0, -1.0, 0.0 },
+    .{ 0.0, 1.0, 0.0, 0.0 },
+);
 
 pub fn main() !u8 {
     if (c.glfwInit() != c.GL_TRUE) {
@@ -272,6 +192,8 @@ pub fn main() !u8 {
     program.setInt("texture2", 1);
 
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
+        camera.print();
+
         const current_frame: f32 = @floatCast(c.glfwGetTime());
         delta_time = current_frame - last_frame;
         last_frame = current_frame;
@@ -293,11 +215,7 @@ pub fn main() !u8 {
             100.0,
         );
 
-        const view: zm.Mat = zm.lookAtRh(
-            camera_pos,
-            camera_pos + camera_front,
-            camera_up,
-        );
+        const view: zm.Mat = camera.viewMat();
 
         program.use();
         program.setMat("projection", zm.arrNPtr(&projection));
@@ -320,4 +238,86 @@ pub fn main() !u8 {
     }
 
     return 0;
+}
+
+var scr_width: c_int = SCR_WIDTH;
+var scr_height: c_int = SCR_HEIGHT;
+
+fn framebufferSizeCallback(_: ?*c.GLFWwindow, width: c_int, height: c_int) callconv(.C) void {
+    scr_width = width;
+    scr_height = height;
+    c.glViewport(0, 0, width, height);
+}
+
+var cp_first_call: bool = true;
+
+var last_x: f64 = SCR_WIDTH / 2;
+var last_y: f64 = SCR_HEIGHT / 2;
+
+var yaw: f64 = -90.0;
+var pitch: f64 = 0.0;
+
+const sensitivity: f64 = 0.1;
+
+fn cursorPosCallback(_: ?*c.GLFWwindow, xpos: f64, ypos: f64) callconv(.C) void {
+    if (cp_first_call) {
+        cp_first_call = false;
+        last_x = xpos;
+        last_y = ypos;
+    }
+
+    var xoffset: f64 = xpos - last_x;
+    var yoffset: f64 = last_y - ypos;
+    last_x = xpos;
+    last_y = ypos;
+
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    if (pitch < -89.0)
+        pitch = -89.0
+    else if (pitch > 89.0)
+        pitch = 89.0;
+
+    const direction = zm.Vec{
+        @floatCast(math.cos(math.degreesToRadians(yaw)) * math.cos(math.degreesToRadians(pitch))),
+        @floatCast(math.sin(math.degreesToRadians(pitch))),
+        @floatCast(math.sin(math.degreesToRadians(yaw)) * math.cos(math.degreesToRadians(pitch))),
+        0.0,
+    };
+
+    camera.front = zm.normalize3(direction);
+}
+
+var fov: f32 = 45.0;
+
+fn scrollCallback(_: ?*c.GLFWwindow, _: f64, yoffset: f64) callconv(.C) void {
+    fov -= @floatCast(yoffset);
+    if (fov < 1.0)
+        fov = 1.0
+    else if (fov > 80.0)
+        fov = 80.0;
+}
+
+var delta_time: f32 = 0.0;
+var last_frame: f32 = 0.0;
+
+const speed: f32 = 2.5;
+
+fn processInput(window: ?*c.GLFWwindow) void {
+    const amount: f32 = speed * delta_time;
+
+    if (c.glfwGetKey(window, c.GLFW_KEY_Q) == c.GLFW_PRESS)
+        c.glfwSetWindowShouldClose(window, c.GL_TRUE)
+    else if (c.glfwGetKey(window, c.GLFW_KEY_W) == c.GLFW_PRESS)
+        camera.moveForward(amount)
+    else if (c.glfwGetKey(window, c.GLFW_KEY_S) == c.GLFW_PRESS)
+        camera.moveBackward(amount)
+    else if (c.glfwGetKey(window, c.GLFW_KEY_A) == c.GLFW_PRESS)
+        camera.moveLeft(amount)
+    else if (c.glfwGetKey(window, c.GLFW_KEY_D) == c.GLFW_PRESS)
+        camera.moveRight(amount);
 }
