@@ -11,8 +11,8 @@ const SCR_WIDTH: u16 = 800;
 const SCR_HEIGHT: u16 = 600;
 
 var camera = Camera.init(
-    .{ 0.0, 0.0, 3.0, 1.0 },
-    .{ 0.0, 0.0, -1.0, 0.0 },
+    .{ -2.0, 0.0, 3.0, 1.0 },
+    .{ 2.0, 0.0, -3.0, 0.0 },
     .{ 0.0, 1.0, 0.0, 0.0 },
 );
 
@@ -48,165 +48,106 @@ pub fn main() !u8 {
 
     c.glEnable(c.GL_DEPTH_TEST);
 
-    const program: ShaderProgram = try ShaderProgram.compile(.{
-        .vertex_path = "res/shaders/vertex_shader.glsl",
-        .fragment_path = "res/shaders/fragment_shader.glsl",
-    });
-    defer program.delete();
-
     // zig fmt: off
 
     const vertices = [_]f32{
-       -0.5, -0.5, -0.5,  0.0, 0.0,
-        0.5, -0.5, -0.5,  1.0, 0.0,
-        0.5,  0.5, -0.5,  1.0, 1.0,
-        0.5,  0.5, -0.5,  1.0, 1.0,
-       -0.5,  0.5, -0.5,  0.0, 1.0,
-       -0.5, -0.5, -0.5,  0.0, 0.0,
+       -0.5, -0.5, -0.5,
+        0.5, -0.5, -0.5,
+        0.5,  0.5, -0.5,
+        0.5,  0.5, -0.5,
+       -0.5,  0.5, -0.5,
+       -0.5, -0.5, -0.5,
 
-       -0.5, -0.5,  0.5,  0.0, 0.0,
-        0.5, -0.5,  0.5,  1.0, 0.0,
-        0.5,  0.5,  0.5,  1.0, 1.0,
-        0.5,  0.5,  0.5,  1.0, 1.0,
-       -0.5,  0.5,  0.5,  0.0, 1.0,
-       -0.5, -0.5,  0.5,  0.0, 0.0,
+       -0.5, -0.5,  0.5,
+        0.5, -0.5,  0.5,
+        0.5,  0.5,  0.5,
+        0.5,  0.5,  0.5,
+       -0.5,  0.5,  0.5,
+       -0.5, -0.5,  0.5,
 
-       -0.5,  0.5,  0.5,  1.0, 0.0,
-       -0.5,  0.5, -0.5,  1.0, 1.0,
-       -0.5, -0.5, -0.5,  0.0, 1.0,
-       -0.5, -0.5, -0.5,  0.0, 1.0,
-       -0.5, -0.5,  0.5,  0.0, 0.0,
-       -0.5,  0.5,  0.5,  1.0, 0.0,
+       -0.5,  0.5,  0.5,
+       -0.5,  0.5, -0.5,
+       -0.5, -0.5, -0.5,
+       -0.5, -0.5, -0.5,
+       -0.5, -0.5,  0.5,
+       -0.5,  0.5,  0.5,
 
-        0.5,  0.5,  0.5,  1.0, 0.0,
-        0.5,  0.5, -0.5,  1.0, 1.0,
-        0.5, -0.5, -0.5,  0.0, 1.0,
-        0.5, -0.5, -0.5,  0.0, 1.0,
-        0.5, -0.5,  0.5,  0.0, 0.0,
-        0.5,  0.5,  0.5,  1.0, 0.0,
+        0.5,  0.5,  0.5,
+        0.5,  0.5, -0.5,
+        0.5, -0.5, -0.5,
+        0.5, -0.5, -0.5,
+        0.5, -0.5,  0.5,
+        0.5,  0.5,  0.5,
 
-       -0.5, -0.5, -0.5,  0.0, 1.0,
-        0.5, -0.5, -0.5,  1.0, 1.0,
-        0.5, -0.5,  0.5,  1.0, 0.0,
-        0.5, -0.5,  0.5,  1.0, 0.0,
-       -0.5, -0.5,  0.5,  0.0, 0.0,
-       -0.5, -0.5, -0.5,  0.0, 1.0,
+       -0.5, -0.5, -0.5,
+        0.5, -0.5, -0.5,
+        0.5, -0.5,  0.5,
+        0.5, -0.5,  0.5,
+       -0.5, -0.5,  0.5,
+       -0.5, -0.5, -0.5,
 
-       -0.5,  0.5, -0.5,  0.0, 1.0,
-        0.5,  0.5, -0.5,  1.0, 1.0,
-        0.5,  0.5,  0.5,  1.0, 0.0,
-        0.5,  0.5,  0.5,  1.0, 0.0,
-       -0.5,  0.5,  0.5,  0.0, 0.0,
-       -0.5,  0.5, -0.5,  0.0, 1.0,
-    };
-
-    const cube_positions = [_]@Vector(3, f32){
-        .{  0.0,  0.0,  0.0  },
-        .{  2.0,  5.0, -15.0 },
-        .{ -1.5, -2.2, -2.5  },
-        .{ -3.8, -2.0, -12.3 },
-        .{  2.4, -0.4, -3.5  },
-        .{ -1.7,  3.0, -7.5  },
-        .{  1.3, -2.0, -2.5  },
-        .{  1.5,  2.0, -2.5  },
-        .{  1.5,  0.2, -1.5  },
-        .{ -1.3,  1.0, -1.5  },
+       -0.5,  0.5, -0.5,
+        0.5,  0.5, -0.5,
+        0.5,  0.5,  0.5,
+        0.5,  0.5,  0.5,
+       -0.5,  0.5,  0.5,
+       -0.5,  0.5, -0.5,
     };
 
     // zig fmt: on
 
-    var VAO: c.GLuint = undefined;
-    c.glGenVertexArrays(1, &VAO);
-    defer c.glDeleteVertexArrays(1, &VAO);
+    const cubeSP: ShaderProgram = try ShaderProgram.compile(.{
+        .vertex_path = "res/shaders/cube_vs.glsl",
+        .fragment_path = "res/shaders/cube_fs.glsl",
+    });
+    defer cubeSP.delete();
+
+    const lightSP: ShaderProgram = try ShaderProgram.compile(.{
+        .vertex_path = "res/shaders/cube_vs.glsl",
+        .fragment_path = "res/shaders/light_fs.glsl",
+    });
+    defer lightSP.delete();
+
+    var cubeVAO: c.GLuint = undefined;
+    c.glGenVertexArrays(1, &cubeVAO);
+    defer c.glDeleteVertexArrays(1, &cubeVAO);
+
+    var lightVAO: c.GLuint = undefined;
+    c.glGenVertexArrays(1, &lightVAO);
+    defer c.glDeleteVertexArrays(1, &lightVAO);
 
     var VBO: c.GLuint = undefined;
     c.glGenBuffers(1, &VBO);
     defer c.glDeleteBuffers(1, &VBO);
 
-    c.glBindVertexArray(VAO);
+    c.glBindVertexArray(cubeVAO);
 
     c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
     c.glBufferData(c.GL_ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices, c.GL_STATIC_DRAW);
 
-    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
-    c.glVertexAttribPointer(1, 2, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), @ptrFromInt(0));
     c.glEnableVertexAttribArray(0);
-    c.glEnableVertexAttribArray(1);
 
-    c.stbi_set_flip_vertically_on_load(1);
+    c.glBindVertexArray(lightVAO);
 
-    var texture1: c.GLuint = undefined;
-    c.glGenTextures(1, &texture1);
-    defer c.glDeleteTextures(1, &texture1);
+    c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
+    c.glBufferData(c.GL_ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices, c.GL_STATIC_DRAW);
 
-    c.glBindTexture(c.GL_TEXTURE_2D, texture1);
+    c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), @ptrFromInt(0));
+    c.glEnableVertexAttribArray(0);
 
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_REPEAT);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_REPEAT);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-
-    const texture1_path = "res/img/container.jpg";
-    var width1: c_int = undefined;
-    var height1: c_int = undefined;
-    var n_channels1: c_int = undefined;
-    const texture1_data: [*c]c.stbi_uc = c.stbi_load(texture1_path, &width1, &height1, &n_channels1, 0);
-    if (texture1_data == null) {
-        std.log.err("Failed to load texture from: {s}", .{texture1_path});
-        return 1;
-    }
-
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGB, width1, height1, 0, c.GL_RGB, c.GL_UNSIGNED_BYTE, texture1_data);
-    c.glGenerateMipmap(c.GL_TEXTURE_2D);
-
-    c.stbi_image_free(texture1_data);
-
-    var texture2: c.GLuint = undefined;
-    c.glGenTextures(1, &texture2);
-    defer c.glDeleteTextures(1, &texture2);
-
-    c.glBindTexture(c.GL_TEXTURE_2D, texture2);
-
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_REPEAT);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_REPEAT);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-
-    const texture2_path = "res/img/awesomeface.png";
-    var width2: c_int = undefined;
-    var height2: c_int = undefined;
-    var n_channels2: c_int = undefined;
-    const texture2_data: [*c]c.stbi_uc = c.stbi_load(texture2_path, &width2, &height2, &n_channels2, 0);
-    if (texture2_data == null) {
-        std.log.err("Failed to load texture from: {s}", .{texture2_path});
-        return 1;
-    }
-
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGBA, width2, height2, 0, c.GL_RGBA, c.GL_UNSIGNED_BYTE, texture2_data);
-    c.glGenerateMipmap(c.GL_TEXTURE_2D);
-
-    c.stbi_image_free(texture2_data);
-
-    program.use();
-    program.setInt("texture1", 0);
-    program.setInt("texture2", 1);
+    c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
+    c.glBindVertexArray(0);
 
     while (c.glfwWindowShouldClose(window) != c.GL_TRUE) {
-        camera.print();
-
         const current_frame: f32 = @floatCast(c.glfwGetTime());
         delta_time = current_frame - last_frame;
         last_frame = current_frame;
 
         processInput(window);
 
-        c.glClearColor(0.2, 0.3, 0.3, 1.0);
+        c.glClearColor(0.1, 0.1, 0.1, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
-
-        c.glActiveTexture(c.GL_TEXTURE0);
-        c.glBindTexture(c.GL_TEXTURE_2D, texture1);
-        c.glActiveTexture(c.GL_TEXTURE1);
-        c.glBindTexture(c.GL_TEXTURE_2D, texture2);
 
         const projection: zm.Mat = zm.perspectiveFovRh(
             math.degreesToRadians(fov),
@@ -214,24 +155,36 @@ pub fn main() !u8 {
             0.1,
             100.0,
         );
-
         const view: zm.Mat = camera.viewMat();
 
-        program.use();
-        program.setMat("projection", zm.arrNPtr(&projection));
-        program.setMat("view", zm.arrNPtr(&view));
+        const object_color = @Vector(3, f32){ 1.0, 0.5, 0.3 };
+        const light_color = @Vector(3, f32){ 1.0, 1.0, 1.0 };
 
-        c.glBindVertexArray(VAO);
+        const cube_model: zm.Mat = zm.scaling(0.5, 0.5, 0.5);
 
-        for (cube_positions, 0..) |v, i| {
-            const translation: zm.Mat = zm.translation(v[0], v[1], v[2]);
-            const angle: f32 = 20.0 * @as(f32, @floatFromInt(i));
-            const rotation: zm.Mat = zm.matFromAxisAngle(zm.f32x4(1.0, 0.3, 0.5, 1.0), math.degreesToRadians(angle));
-            const model: zm.Mat = zm.mul(rotation, translation);
-            program.setMat("model", zm.arrNPtr(&model));
+        cubeSP.use();
+        cubeSP.setMat("model", &cube_model);
+        cubeSP.setMat("view", &view);
+        cubeSP.setMat("projection", &projection);
+        cubeSP.setVec3("objectColor", &object_color);
+        cubeSP.setVec3("lightColor", &light_color);
 
-            c.glDrawArrays(c.GL_TRIANGLES, 0, 36);
-        }
+        c.glBindVertexArray(cubeVAO);
+        c.glDrawArrays(c.GL_TRIANGLES, 0, 36);
+
+        const light_model: zm.Mat = zm.mul(
+            zm.translation(1.5, 1.5, 3.0),
+            zm.scaling(0.2, 0.2, 0.2),
+        );
+
+        lightSP.use();
+        lightSP.setMat("model", &light_model);
+        lightSP.setMat("view", &view);
+        lightSP.setMat("projection", &projection);
+        lightSP.setVec3("lightColor", &light_color);
+
+        c.glBindVertexArray(lightVAO);
+        c.glDrawArrays(c.GL_TRIANGLES, 0, 36);
 
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
