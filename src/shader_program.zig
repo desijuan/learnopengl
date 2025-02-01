@@ -1,6 +1,7 @@
 const std = @import("std");
 const utils = @import("utils.zig");
 const c = @import("c.zig");
+const zm = @import("zmath");
 
 const INFO_LOG_SIZE = 512;
 
@@ -85,6 +86,10 @@ pub inline fn setFloat(self: Self, name: [:0]const u8, value: f32) void {
     c.glUniform1f(c.glGetUniformLocation(self.id, name), value);
 }
 
-pub inline fn setMat(self: Self, name: [:0]const u8, mat: [*c]const f32) void {
-    c.glUniformMatrix4fv(c.glGetUniformLocation(self.id, name), 1, c.GL_FALSE, mat);
+pub inline fn setVec3(self: Self, name: [:0]const u8, vp: *const @Vector(3, f32)) void {
+    c.glUniform3fv(c.glGetUniformLocation(self.id, name), 1, @ptrCast(vp));
+}
+
+pub inline fn setMat(self: Self, name: [:0]const u8, mp: *const zm.Mat) void {
+    c.glUniformMatrix4fv(c.glGetUniformLocation(self.id, name), 1, c.GL_FALSE, @ptrCast(mp));
 }
